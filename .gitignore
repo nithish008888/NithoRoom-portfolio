@@ -12,3 +12,6 @@ assets-src/
 
 # the résumé source PDF (the site serves public/resume/Nithishhariharan-M-Resume.pdf)
 /126176071_Nithishhariharan.M.pdf
+
+.vercel
+.env*

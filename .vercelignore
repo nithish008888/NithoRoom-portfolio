@@ -6,3 +6,4 @@ docs
 blender
 /126176071_Nithishhariharan.M.pdf
 *.log
+.env*
