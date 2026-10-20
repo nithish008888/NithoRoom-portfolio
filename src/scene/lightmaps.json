@@ -1,0 +1,84 @@
+{
+ "atlases": {
+  "room": {
+   "file": "models/lm_room.webp",
+   "scale": 2.25795,
+   "size": [
+    2048,
+    2048
+   ]
+  },
+  "desk": {
+   "file": "models/lm_desk.webp",
+   "scale": 0.82001,
+   "size": [
+    2048,
+    2048
+   ]
+  },
+  "props": {
+   "file": "models/lm_props.webp",
+   "scale": 1.28713,
+   "size": [
+    2048,
+    2048
+   ]
+  }
+ },
+ "objects": {
+  "Floor": "room",
+  "Ceiling": "room",
+  "Wall_Left": "room",
+  "Wall_Right": "room",
+  "Wall_Back": "room",
+  "Wall_Window": "room",
+  "Window_Frame": "room",
+  "Window_Sill": "room",
+  "Curtain_L": "room",
+  "Curtain_R": "room",
+  "Desk_Top": "desk",
+  "Desk_Frame": "room",
+  "SideDesk_Top": "room",
+  "SideDesk_Frame": "room",
+  "Speaker_L_Cone": "props",
+  "Speaker_L_LED": "props",
+  "Speaker_R_Cone": "props",
+  "Speaker_R_LED": "props",
+  "Notes_a4_stack": "props",
+  "Notes_note_stack": "props",
+  "Notes_sticky_stack": "props",
+  "Folio": "props",
+  "Glasses": "props",
+  "Cassette": "props",
+  "TV_Shell": "props",
+  "VCR_Shell": "props",
+  "Lamp": "props",
+  "Remote": "props",
+  "Calculator": "props",
+  "Floppy0": "props",
+  "Floppy1": "props",
+  "CDPlayer": "props",
+  "Headphones": "props",
+  "Computer_Shell": "props",
+  "Keyboard": "props",
+  "SwitchBoard": "room",
+  "Window_Handle": "room",
+  "Speaker_L": "props",
+  "Speaker_R": "props",
+  "Chair": "props",
+  "Curtain_Rings": "room",
+  "Curtain_RodSet": "room",
+  "Desk_Drawer": "room",
+  "Mug": "props",
+  "Wardrobe": "room",
+  "Postcards": "room",
+  "Poster_Tapes": "room",
+  "PenCup": "props",
+  "Books": "props",
+  "Walkman": "props",
+  "Plant": "props",
+  "Cables": "props",
+  "Skirting": "room",
+  "Poster": "props"
+ }
+}

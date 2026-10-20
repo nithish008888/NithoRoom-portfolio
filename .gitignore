@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.log
+.vercel/
+.DS_Store
+docs/demo/tmp/
+
+# Source material stays on the owner's machine: raw recordings, the project presentation, Blender
+# files, Poly Haven downloads, the original photo / character / music. The site ships the web-ready
+# copies in public/ (see scripts/encode-media.mjs and scripts/optimize-assets.mjs).
+assets-src/
+
+# the résumé source PDF (the site serves public/resume/Nithishhariharan-M-Resume.pdf)
+/126176071_Nithishhariharan.M.pdf
