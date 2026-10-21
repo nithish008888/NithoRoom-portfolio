@@ -29,6 +29,7 @@ export function makeWindowGlass(city: Texture) {
       uBoxMin: { value: new Vector3(-1.75, 0, -0.3) },
       uBoxMax: { value: new Vector3(1.75, 2.65, 3.4) },
       uReflect: { value: 1.0 },
+      uFlash: { value: 0 },
     },
     vertexShader: /* glsl */ `
       varying vec3 vWorldPos;
@@ -55,6 +56,7 @@ export function makeWindowGlass(city: Texture) {
       uniform vec3 uBoxMin;
       uniform vec3 uBoxMax;
       uniform float uReflect;
+      uniform float uFlash;
       varying vec3 vWorldPos;
       varying vec3 vNormalW;
 
@@ -171,6 +173,13 @@ export function makeWindowGlass(city: Texture) {
         vec3 refl = uHasEnv > 0.5 ? textureLod(uEnv, rd, 0.0).rgb : vec3(0.0);
         float cosT = clamp(dot(-V, N), 0.0, 1.0);
         float F = 0.04 + 0.96 * pow(1.0 - cosT, 5.0);
+
+        // lightning: the clouds light up from above, the city and the falling rain catch it
+        if (uFlash > 0.0) {
+          float sky = smoothstep(-0.12, 0.42, dir.y);
+          city += uFlash * (vec3(0.55, 0.62, 0.85) * (0.08 + 0.92 * sky) * 1.6 + city * 1.4);
+          rainCol += uFlash * vec3(0.5, 0.55, 0.7) * rain * 0.6;
+        }
 
         vec3 col = city * (1.0 - F) * vec3(0.93, 0.96, 1.0) + rainCol + refl * F * uReflect * (1.0 + wet * 0.6);
         col += vec3(lum) * 0.04 * wet;

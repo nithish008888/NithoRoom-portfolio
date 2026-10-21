@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { emit } from '../lib/events'
 import { anchors } from '../scene/anchors'
+import { toggleLamp, toggleTube } from '../scene/lighting'
 import { FOCUS_SPOTS } from '../scene/SpotAnchors'
 import { go } from '../state/router'
 import { useStore, type View } from '../state/store'
@@ -14,6 +15,7 @@ export function HotspotButtons() {
   const view = useStore((s) => s.view)
   const phase = useStore((s) => s.phase)
   const focus = useStore((s) => s.focus)
+  const lights = useStore((s) => s.lights)
   const ring = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -35,30 +37,42 @@ export function HotspotButtons() {
     return () => cancelAnimationFrame(raf)
   }, [focus])
 
-  if (phase !== 'entered' || view !== 'overview') return null
-  const active = FOCUS_SPOTS.find((f) => `spot:${f.id}` === focus)
+  const spots = FOCUS_SPOTS.filter((f) => ('in' in f ? f.in : 'overview') === view)
+  if (phase !== 'entered' || !spots.length) return null
+  const labelOf = (f: (typeof FOCUS_SPOTS)[number]) => {
+    if (!('toggle' in f)) return f.label
+    const on = lights[f.toggle]
+    return `${f.label}: ${on ? 'on' : 'off'} — switch ${on ? 'off' : 'on'}`
+  }
+  const active = spots.find((f) => `spot:${f.id}` === focus)
   return (
     <>
-      <ul className="spots" aria-label="Objects on the desk">
-        {FOCUS_SPOTS.map((f) => (
+      <ul className="spots" aria-label={view === 'overview' ? 'Objects on the desk' : 'Objects in this corner'}>
+        {spots.map((f) => (
           <li key={f.id}>
             <button
               className="spot-btn"
+              aria-pressed={'toggle' in f ? lights[f.toggle] : undefined}
               onFocus={() => useStore.getState().set({ focus: `spot:${f.id}` })}
               onBlur={() => useStore.getState().set({ focus: null })}
               onClick={() => {
+                if ('toggle' in f) {
+                  if (f.toggle === 'lamp') toggleLamp()
+                  else toggleTube()
+                  return
+                }
                 emit('ui:click')
                 go(f.view as View, 'project' in f ? f.project : null)
               }}
             >
-              {f.label}
+              {'toggle' in f ? f.label : labelOf(f)}
             </button>
           </li>
         ))}
       </ul>
       {active && (
         <div className="spot-ring" ref={ring} aria-hidden="true">
-          <span>{active.label}</span>
+          <span>{labelOf(active)}</span>
         </div>
       )}
     </>

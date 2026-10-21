@@ -1,7 +1,7 @@
 // Optimises the Blender exports for the web.
 //   assets-src/generated/room_raw.glb      -> public/models/room.glb (WebP textures, meshopt geometry)
 //   assets-src/generated/nitho_raw.glb     -> public/models/nitho.glb (the seated character, skinned)
-//   assets-src/generated/lightmaps/*.png   -> public/models/lm_*.webp (+ updates src/scene/lightmaps.json)
+//   assets-src/generated/lightmaps/*.png   -> public/models/lm_<layer>_<atlas>.webp (+ updates src/scene/lightmaps.json)
 //   assets-src/generated/city.png          -> public/textures/city.webp + city_sm.webp
 // Usage: npm run assets:optimize
 import { NodeIO } from '@gltf-transform/core'
@@ -9,7 +9,7 @@ import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 import { dedup, prune, textureCompress, meshopt } from '@gltf-transform/functions'
 import { MeshoptEncoder, MeshoptDecoder } from 'meshoptimizer'
 import sharp from 'sharp'
-import { readFile, writeFile, mkdir, stat, readdir } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, stat, readdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -55,17 +55,24 @@ if (await stat(charRaw).catch(() => null)) {
   console.log('nitho.glb', await kb(charOut))
 }
 
-// ---------------------------------------------------------------- lightmaps
+// ---------------------------------------------------------------- lightmaps (one per light layer and atlas)
 const lmDir = join(gen, 'lightmaps')
 const manifestPath = join(root, 'src', 'scene', 'lightmaps.json')
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
-for (const f of (await readdir(lmDir)).filter((f) => f.endsWith('.png'))) {
-  const name = f.replace(/\.png$/, '')
-  const out = join(pub, 'models', `${name}.webp`)
-  await sharp(join(lmDir, f)).webp({ quality: 92, smartSubsample: true }).toFile(out)
-  const atlas = name.replace(/^lm_/, '')
-  if (manifest.atlases[atlas]) manifest.atlases[atlas].file = `models/${name}.webp`
-  console.log(`${name}.webp`, await kb(out))
+const used = new Set()
+for (const [atlas, a] of Object.entries(manifest.atlases)) {
+  for (const [layer, map] of Object.entries(a.maps)) {
+    const name = `lm_${layer}_${atlas}`
+    const out = join(pub, 'models', `${name}.webp`)
+    await sharp(join(lmDir, `${name}.png`)).webp({ quality: 92, smartSubsample: true }).toFile(out)
+    map.file = `models/${name}.webp`
+    used.add(`${name}.webp`)
+    console.log(`${name}.webp`, await kb(out))
+  }
+}
+// lightmaps left over from earlier bakes
+for (const f of await readdir(join(pub, 'models'))) {
+  if (/^lm_.*\.webp$/.test(f) && !used.has(f)) await rm(join(pub, 'models', f))
 }
 await writeFile(manifestPath, JSON.stringify(manifest, null, 1))
 

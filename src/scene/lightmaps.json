@@ -1,28 +1,118 @@
 {
+ "layers": [
+  "base",
+  "window",
+  "lamp",
+  "tube"
+ ],
  "atlases": {
   "room": {
-   "file": "models/lm_room.webp",
-   "scale": 2.25795,
-   "size": [
-    2048,
-    2048
-   ]
+   "maps": {
+    "base": {
+     "file": "models/lm_base_room.webp",
+     "scale": 2.22458,
+     "size": [
+      2048,
+      2048
+     ]
+    },
+    "window": {
+     "file": "models/lm_window_room.webp",
+     "scale": 0.20645,
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    "lamp": {
+     "file": "models/lm_lamp_room.webp",
+     "scale": 0.01031,
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    "tube": {
+     "file": "models/lm_tube_room.webp",
+     "scale": 1.58034,
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   }
   },
   "desk": {
-   "file": "models/lm_desk.webp",
-   "scale": 0.82001,
-   "size": [
-    2048,
-    2048
-   ]
+   "maps": {
+    "base": {
+     "file": "models/lm_base_desk.webp",
+     "scale": 0.6102,
+     "size": [
+      2048,
+      2048
+     ]
+    },
+    "window": {
+     "file": "models/lm_window_desk.webp",
+     "scale": 0.09859,
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    "lamp": {
+     "file": "models/lm_lamp_desk.webp",
+     "scale": 0.36891,
+     "size": [
+      2048,
+      2048
+     ]
+    },
+    "tube": {
+     "file": "models/lm_tube_desk.webp",
+     "scale": 0.85595,
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   }
   },
   "props": {
-   "file": "models/lm_props.webp",
-   "scale": 1.28713,
-   "size": [
-    2048,
-    2048
-   ]
+   "maps": {
+    "base": {
+     "file": "models/lm_base_props.webp",
+     "scale": 0.95974,
+     "size": [
+      2048,
+      2048
+     ]
+    },
+    "window": {
+     "file": "models/lm_window_props.webp",
+     "scale": 0.24503,
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    "lamp": {
+     "file": "models/lm_lamp_props.webp",
+     "scale": 0.53415,
+     "size": [
+      2048,
+      2048
+     ]
+    },
+    "tube": {
+     "file": "models/lm_tube_props.webp",
+     "scale": 4.84696,
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   }
   }
  },
  "objects": {
@@ -50,6 +140,8 @@
   "Folio": "props",
   "Glasses": "props",
   "Cassette": "props",
+  "Switch_Light": "props",
+  "Tube_Batten": "props",
   "TV_Shell": "props",
   "VCR_Shell": "props",
   "Lamp": "props",

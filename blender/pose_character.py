@@ -125,7 +125,10 @@ if PREVIEW:
     sc.collection.objects.link(cam)
     sc.camera = cam
     screen = Vector((-1.371, -1.12, 1.045))
-    for name, pos, look, fov in POSE.get('preview_cams', []):
+    for cam_spec in POSE.get('preview_cams', []):
+        name, pos, look, fov = cam_spec[:4]
+        size = cam_spec[4] if len(cam_spec) > 4 else (960, 600)   # optional [w, h]
+        sc.render.resolution_x, sc.render.resolution_y = size
         cam.location = Vector(pos)
         cam.rotation_euler = (Vector(look or screen) - cam.location).to_track_quat('-Z', 'Y').to_euler()
         cam_d.angle_y = R(fov)

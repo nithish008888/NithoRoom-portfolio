@@ -5,7 +5,10 @@ import { useStore } from '../state/store'
 import { anchors } from './anchors'
 import { registry } from './registry'
 
-/** Objects that keyboard users can focus in the overview (see ui/HotspotButtons.tsx). */
+/**
+ * Objects that keyboard users can focus (see ui/HotspotButtons.tsx): in the overview unless `in` says
+ * otherwise. `view` is where they lead; `toggle` ones switch a light instead.
+ */
 export const FOCUS_SPOTS = [
   { id: 'notepad', object: 'Notepad', label: 'Work — pick up the notepad', view: 'work' },
   { id: 'tv', object: 'TV_Shell', label: 'Watch the television', view: 'tv' },
@@ -14,6 +17,8 @@ export const FOCUS_SPOTS = [
   { id: 'contact', object: 'ContactCard', label: 'Contact card', view: 'contact' },
   { id: 'cd', object: 'CDPlayer', label: 'CD player — music', view: 'music' },
   ...projects.map((p, i) => ({ id: `tape:${p.id}`, object: `Tape:${p.id}`, label: `Play tape ${String(i + 1).padStart(2, '0')}: ${p.title}`, view: 'work' as const, project: p.id })),
+  { id: 'lamp', object: 'Lamp', label: 'Desk lamp', view: 'overview', toggle: 'lamp' },
+  { id: 'switch', object: 'SwitchBoard', label: 'Light switch', view: 'about', toggle: 'tube', in: 'about' },
 ] as const
 
 const box = new Box3()

@@ -63,6 +63,15 @@ const plan = async (page, shot) => {
   await go(page, '#/tv')
   await page.waitForTimeout(2400)
   await shot('10-tv')
+  // the switch above the computer turns on the tube light
+  await go(page, '#/about')
+  await page.waitForTimeout(3000)
+  await page.evaluate(() => window.__room.lighting.toggleTube(true))
+  await page.waitForTimeout(2500)
+  await shot('12-about-light-on')
+  await go(page, '#/')
+  await page.waitForTimeout(3200)
+  await shot('13-overview-light-on')
 }
 
 await session('desktop', { viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 }, plan)

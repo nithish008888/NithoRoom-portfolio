@@ -2,14 +2,22 @@
 
 **Live:** https://nithoroom-portfolio.vercel.app
 
+**How it was made, in plain language:** [project-guide/](project-guide/README.md)
+
 An interactive 3D portfolio: a wooden desk in front of a rainy night window in a
 fifth-floor room in Thanjavur, looking out at the floodlit Big Temple, gopurams,
 the palace domes and Tamil neon shop signs. Pick a tape from the stacks and it
 slides into the VCR, the television tracks through static and plays the
 project's footage; the legal pad holds the work list, the old computer (where
-Nithish's own character sits typing) tells the story, the printout is the
+Nithish's own character sits reading) tells the story, the printout is the
 résumé, the index card has the contact links, and the Discman plays music
-through the two desk speakers. His photo is the "ME" poster on the wall.
+through the two desk speakers. Nithish's photo is the "ME" poster on the wall.
+
+The room is alive: the wall switch above the computer turns on the tube light
+(it blinks on like a real fluorescent tube), a click on the desk lamp switches it
+off and on, steam curls up from the coffee, dust drifts in the lamp light, the
+curtains and the plant move a little, the fairy lights twinkle, and now and then
+lightning flashes over the city, with thunder if the sound is on.
 
 Built with **Three.js + React Three Fiber + TypeScript** (Vite). Room and props
 are modelled in **Blender** (scripted, `blender/`), lit with baked **Cycles**
@@ -83,7 +91,8 @@ blender/pose_character.py   seats the owner's character (assets-src/nitho_articu
 blender/build_city.py       rainy Thanjavur: Big Temple vimana, gopurams, palace, lodge, shop rows,
                             palms, autos (rendered once as a panorama)
 blender/finish_city.py      HDR -> 8-bit (Reinhard) + rain haze glow
-blender/bake_export.py      joins props, lightmap UVs, Cycles bake (the character casts shadows), GLB
+blender/bake_export.py      joins props, lightmap UVs, Cycles bake of four light layers (base, window,
+                            lamp, tube; the character casts shadows), GLB
 scripts/fetch-polyhaven.mjs downloads the CC0 source assets
 scripts/make-signs.mjs      Tamil / English neon sign textures for the city (browser text shaping)
 scripts/encode-media.mjs    project footage and stills for the web
@@ -109,6 +118,18 @@ Runtime highlights
 - Static surfaces use the baked Cycles lightmaps (diffuse) + a captured room
   cubemap (reflections); realtime lights only touch moving objects
   (`src/scene/materials/baked.ts`).
+- Switchable light in a baked room: every light group is baked into its own
+  lightmap layer (base, window, lamp, tube) and each surface sums the layers
+  with shared weights, so the wall switch, the lamp and lightning relight the
+  whole room with real bounce and soft shadows at no cost. The tube blinks on
+  with its starter's tink, the reflections are captured again once a light
+  settles, and the character's light probe follows (`src/scene/lighting.ts`,
+  `src/scene/LightControls.tsx`).
+- Small signs of life: steam over the mug and dust in the lamp beam
+  (`src/scene/Ambience.tsx`), curtains and plant leaves swaying a few
+  millimetres (vertex shader in `baked.ts`), twinkling fairy lights, lightning
+  on the window glass (`windowGlass.ts`) with thunder and a faint mains hum from
+  the tube (`src/audio/audio.ts`).
 - The window glass samples the city panorama through a proxy sphere for
   parallax, refracts it through droplets and reflects the room
   (`src/scene/materials/windowGlass.ts`).
@@ -131,23 +152,29 @@ Runtime highlights
 ## Accessibility & fallbacks
 
 - Header navigation, Esc / "Back to the desk", browser Back and deep links.
-- Keyboard: W work · A about · R résumé · C contact · M music · T tv · Esc back;
-  Tab reaches every in-world control (focus rings are drawn on the objects).
+- Keyboard: W work · A about · R résumé · C contact · M music · T tv · L room
+  light · Esc back; Tab reaches every in-world control (focus rings are drawn on
+  the objects), including the desk lamp (overview) and the wall switch (About),
+  both announced as toggle buttons.
 - `prefers-reduced-motion`: camera cuts with a short fade, no rain animation,
-  tapes go straight into the deck.
+  tapes go straight into the deck, the tube light fades in without blinking, no
+  lightning, and the steam, dust, curtains, leaves and fairy lights hold still.
+- Flashes stay under the three-flashes-a-second limit: the tube blinks at most
+  twice before it holds, lightning is two pulses and comes rarely.
 - No WebGL 2 → the reading version. `?reading` any time.
 - Sound is off unless the visitor chooses "enter with sound".
 
 ## Screenshots & demo
 
-- `docs/screenshots/desktop-01…11-*.png` (1920×1080; reading version 1440×900)
-  and `mobile-01…11-*.png` (390×844 @2x, touch): entry, overview, notepad, tape
+- `docs/screenshots/desktop-01…13-*.png` (1920×1080; reading version 1440×900)
+  and `mobile-01…13-*.png` (390×844 @2x, touch): entry, overview, notepad, tape
   loading, tape playing, about terminal, résumé, contact, music, TV, reading
-  version.
+  version, about with the room light on, overview with the room light on.
 - `docs/demo/demo.mp4` (H.264) / `demo.webm` at 1280×720: loading → entry →
   notepad → one tape from the stack, one from the notepad list (with their
-  footage) → about (the character at the computer) → résumé → contact → the
-  Discman starting the music → back to the desk.
+  footage) → about (the character at the computer, the wall switch turning the
+  tube light on and off) → résumé → contact → the Discman starting the music →
+  the desk lamp off and on → lightning over the city.
 
 ## Checks
 
@@ -174,8 +201,11 @@ so fades look a little quicker in the video than in the browser.
 ## Known gaps
 
 - Sound was only exercised in headless Chrome, so nothing was heard: the
-  speaker positioning (HRTF), the music level and the footage audio need one
-  listen with headphones and with speakers.
+  speaker positioning (HRTF), the music level, the footage audio, the thunder,
+  the tube's tink and hum need one listen with headphones and with speakers.
+- The baked room now carries 12 lightmaps (4 light layers × 3 atlases, about
+  2.2 MB to download, roughly 150 MB of GPU memory); check memory and frame rate
+  on a mid-range phone.
 - Tested in desktop Chrome and Chrome's mobile emulation only (no real phone,
   Safari or Firefox yet). The seated character adds ~100k skinned triangles;
   check frame rate on a mid-range phone.
@@ -193,7 +223,7 @@ so fades look a little quicker in the video than in the browser.
 | Project periods | CKD: 2026 (presentation timeline); the others are not stated anywhere → left empty |
 | Contact | email + GitHub from the résumé; phone hidden (`site.contact.phone.show`); LinkedIn not supplied |
 | CD player music | loops generated in the browser (the supplied commercial song is kept out of the public site) |
-| Poster, character | the owner's photo and 3D character, supplied for this site |
+| Poster, character | the owner's photo and 3D character, supplied for this site; the character's hands rest in the lap, out of the About frames |
 
 ## Credits
 

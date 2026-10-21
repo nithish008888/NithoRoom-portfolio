@@ -37,6 +37,8 @@ interface State {
   moving: boolean
   /** room.glb parsed and the object registry filled */
   sceneReady: boolean
+  /** the desk lamp and the wall tube light (switch above the computer) */
+  lights: { lamp: boolean; tube: boolean }
 }
 
 interface Actions {
@@ -44,6 +46,7 @@ interface Actions {
   setHover: (h: Hover) => void
   setVcr: (v: Partial<State['vcr']>) => void
   setMusic: (m: Partial<MusicState>) => void
+  setLights: (l: Partial<State['lights']>) => void
 }
 
 const prefersReducedMotion =
@@ -64,10 +67,12 @@ export const useStore = create<State & Actions>()(
     music: { playing: false, track: 0, volume: 0.7, elapsed: 0, duration: 0, loading: false },
     moving: false,
     sceneReady: false,
+    lights: { lamp: true, tube: false },
     set: (p) => set(p),
     setHover: (hover) => set((s) => (s.hover?.id === hover?.id && s.hover?.label === hover?.label ? s : { hover })),
     setVcr: (v) => set((s) => ({ vcr: { ...s.vcr, ...v } })),
     setMusic: (m) => set((s) => ({ music: { ...s.music, ...m } })),
+    setLights: (l) => set((s) => ({ lights: { ...s.lights, ...l } })),
   })),
 )
 

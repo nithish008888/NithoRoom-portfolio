@@ -3,12 +3,13 @@
 blender -b assets-src/blend/room.blend --python-exit-code 1 -P blender/bake_export.py -- [samples] [--no-bake]
 
 Outputs
-  assets-src/generated/room_raw.glb            (optimised later by scripts/optimize-assets.mjs)
-  assets-src/generated/lightmaps/<atlas>.exr   (float irradiance)
-  public/models/lm_<atlas>.png                 (8-bit sRGB, value = irradiance / scale)
-  src/scene/lightmaps.json                     ({atlas: {file, scale, size}}, objects -> atlas)
+  assets-src/generated/room_raw.glb                        (optimised later by scripts/optimize-assets.mjs)
+  assets-src/generated/lightmaps/lm_<layer>_<atlas>.png    (8-bit sRGB, value = irradiance / scale)
+  src/scene/lightmaps.json   ({layers, atlases: {atlas: {maps: {layer: {file, scale, size}}}}, objects -> atlas)
 
-Lightmaps store diffuse light only (no albedo). In three.js: lightMapIntensity = PI * scale.
+Every light layer (see LAYERS) is baked on its own, so the web app can switch and dim lights by summing the
+layers with its own weights. Lightmaps store diffuse light only (no albedo). In three.js the contribution of
+a layer is texel * PI * scale.
 """
 import bpy
 import bmesh
@@ -117,7 +118,7 @@ poster = bpy.data.objects.get('Poster')
 if poster:
     static_meshes.append(poster)
 # self-lit bits that would skew an atlas's exposure (they glow on their own at runtime)
-NO_LIGHTMAP = ('FairyLights',)
+NO_LIGHTMAP = ('FairyLights', 'Tube_Diffuser')
 static_meshes = [o for o in static_meshes if o.name not in NO_LIGHTMAP]
 for o in static_meshes:
     if o.name in ROOM_SHELL:
@@ -126,7 +127,6 @@ for o in static_meshes:
         ATLAS_OF[o.name] = 'desk'
     else:
         ATLAS_OF[o.name] = 'props'
-ATLAS_SIZE = {'room': (2048, 2048), 'desk': (2048, 2048), 'props': (2048, 2048)}
 
 
 def ensure_uvs(o):
@@ -169,8 +169,21 @@ for a in ('room', 'desk', 'props'):
     atlas_objs[a] = unwrap_atlas(a)
     print('ATLAS', a, len(atlas_objs[a]), 'objects')
 
-# ----------------------------------------------------------------------------- 3. bake
-manifest = {'atlases': {}, 'objects': ATLAS_OF}
+# ----------------------------------------------------------------------------- 3. bake, one lightmap per light layer
+#   base    room fill, the corner and fairy-light washes, the small LEDs
+#   window  the night through the glass (and the sky); lightning flashes boost it at runtime
+#   lamp    the desk lamp (bulb + glowing shade); a click on the lamp switches it
+#   tube    the wall tube light; the switch above the computer turns it on (off by default)
+# emit: emissive materials that belong to the layer (None = every emitter no other layer claims)
+LAYERS = {
+    'base': {'lights': ('L_Room', 'L_RoomLeft', 'L_Corner', 'L_Fairy'), 'emit': None, 'world': False,
+             'size': {'room': 2048, 'desk': 2048, 'props': 2048}},
+    'window': {'lights': ('L_Window',), 'emit': (), 'world': True, 'size': {'room': 1024, 'desk': 1024, 'props': 1024}},
+    'lamp': {'lights': ('L_Lamp',), 'emit': ('M_Bulb', 'M_LampInner'), 'world': False,
+             'size': {'room': 1024, 'desk': 2048, 'props': 2048}},
+    'tube': {'lights': ('L_Tube',), 'emit': ('M_TubeLight',), 'world': False, 'size': {'room': 1024, 'desk': 1024, 'props': 1024}},
+}
+manifest = {'layers': list(LAYERS), 'atlases': {a: {'maps': {}} for a in atlas_objs}, 'objects': ATLAS_OF}
 
 
 def write_png(path, arr):
@@ -247,41 +260,77 @@ if DO_BAKE:
             o.data.materials.clear()
             o.data.materials.append(lib.material('M_Proxy', color=(0.06, 0.06, 0.07), rough=0.5))
 
-    for a, objs in atlas_objs.items():
-        w, h = ATLAS_SIZE[a]
-        img = bpy.data.images.new(f'LM_{a}', w, h, alpha=True, float_buffer=True)
-        mats = {m for o in objs for m in o.data.materials if m}
-        for m in mats:
-            nt = m.node_tree
-            n = nt.nodes.get('LM_TARGET') or nt.nodes.new('ShaderNodeTexImage')
-            n.name = 'LM_TARGET'
-            n.image = img
-            nt.nodes.active = n
-        bpy.ops.object.select_all(action='DESELECT')
-        for o in objs:
-            o.select_set(True)
-        bpy.context.view_layer.objects.active = objs[0]
-        print('BAKING', a, len(objs), 'objects', w, 'x', h, SAMPLES, 'spp')
-        bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, uv_layer='Lightmap',
-                            target='IMAGE_TEXTURES', use_clear=True, margin=6)
-        img.filepath_raw = os.path.join(GEN, 'lightmaps', f'{a}.exr')
-        img.file_format = 'OPEN_EXR'
-        img.save()
-        scale = finish_lightmap(img, a)
-        manifest['atlases'][a] = {'file': f'models/lm_{a}.png', 'scale': round(scale, 5), 'size': [w, h]}
-        print('BAKED', a, 'scale', scale)
-        for m in mats:
-            n = m.node_tree.nodes.get('LM_TARGET')
-            if n:
-                m.node_tree.nodes.remove(n)
-    # restore visibility for export
+    # lights and emitters per layer
+    lights = [o for o in scene.objects if o.type == 'LIGHT']
+    claimed = {n for L in LAYERS.values() for n in L['lights']}
+    for o in lights:
+        if o.name not in claimed:
+            print('WARNING light in no layer (never baked):', o.name)
+    screen_mats = {m.name for o in colobjs('SCREENS') for m in o.data.materials if m}
+    emitters = {}
+    for m in bpy.data.materials:
+        b = m.node_tree.nodes.get('Principled BSDF') if m.use_nodes else None
+        if b and m.name not in screen_mats and b.inputs['Emission Strength'].default_value > 0:
+            emitters[m.name] = (b, b.inputs['Emission Strength'].default_value)
+    owned = {n for L in LAYERS.values() if L['emit'] for n in L['emit']}
+    bg = scene.world.node_tree.nodes.get('Background') if scene.world else None
+    bg_strength = bg.inputs['Strength'].default_value if bg else 0.0
+    for f in os.listdir(os.path.join(GEN, 'lightmaps')):   # results of earlier bakes
+        if f.endswith(('.png', '.exr')):
+            os.remove(os.path.join(GEN, 'lightmaps', f))
+
+    for layer, L in LAYERS.items():
+        for o in lights:
+            o.hide_render = o.name not in L['lights']
+        for name, (b, strength) in emitters.items():
+            on = (name not in owned) if L['emit'] is None else (name in L['emit'])
+            b.inputs['Emission Strength'].default_value = strength if on else 0.0
+        if bg:
+            bg.inputs['Strength'].default_value = bg_strength if L['world'] else 0.0
+        print('LAYER', layer, 'lights', [o.name for o in lights if not o.hide_render],
+              'emitters', [n for n, (b, _) in emitters.items() if b.inputs['Emission Strength'].default_value > 0])
+        for a, objs in atlas_objs.items():
+            w = h = L['size'][a]
+            img = bpy.data.images.new(f'LM_{layer}_{a}', w, h, alpha=True, float_buffer=True)
+            mats = {m for o in objs for m in o.data.materials if m}
+            for m in mats:
+                nt = m.node_tree
+                n = nt.nodes.get('LM_TARGET') or nt.nodes.new('ShaderNodeTexImage')
+                n.name = 'LM_TARGET'
+                n.image = img
+                nt.nodes.active = n
+            bpy.ops.object.select_all(action='DESELECT')
+            for o in objs:
+                o.select_set(True)
+            bpy.context.view_layer.objects.active = objs[0]
+            print('BAKING', layer, a, len(objs), 'objects', w, 'x', h, SAMPLES, 'spp')
+            bpy.ops.object.bake(type='DIFFUSE', pass_filter={'DIRECT', 'INDIRECT'}, uv_layer='Lightmap',
+                                target='IMAGE_TEXTURES', use_clear=True, margin=6 if w >= 2048 else 4)
+            scale = finish_lightmap(img, f'{layer}_{a}')
+            manifest['atlases'][a]['maps'][layer] = {'file': f'models/lm_{layer}_{a}.png', 'scale': round(scale, 5),
+                                                     'size': [w, h]}
+            print('BAKED', layer, a, 'scale', scale)
+            for m in mats:
+                n = m.node_tree.nodes.get('LM_TARGET')
+                if n:
+                    m.node_tree.nodes.remove(n)
+            bpy.data.images.remove(img)
+    # restore lights, emitters and visibility for export
+    for o in lights:
+        o.hide_render = False
+    for b, strength in emitters.values():
+        b.inputs['Emission Strength'].default_value = strength
+    if bg:
+        bg.inputs['Strength'].default_value = bg_strength
     for cname in ('PREVIEW', 'GLASS', 'EXTERIOR', 'DECALS', 'DYNAMIC'):
         for o in colobjs(cname):
             o.hide_render = False
 else:
     old = os.path.join(lib.ROOT, 'src', 'scene', 'lightmaps.json')
     if os.path.exists(old):
-        manifest['atlases'] = json.load(open(old))['atlases']
+        prev = json.load(open(old))
+        manifest['layers'] = prev.get('layers', manifest['layers'])
+        manifest['atlases'] = prev['atlases']
 
 json.dump(manifest, open(os.path.join(lib.ROOT, 'src', 'scene', 'lightmaps.json'), 'w'), indent=1)
 

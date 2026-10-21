@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { setSound, startAudio, audioContext } from '../audio/audio'
 import { projectById, site } from '../content/site'
 import { emit, on } from '../lib/events'
+import { toggleTube } from '../scene/lighting'
 import { backToDesk, go } from '../state/router'
 import { useStore, type View } from '../state/store'
 import { Boot, enter } from './Boot'
@@ -76,7 +77,7 @@ function Bottom() {
     <div className="bottom">
       {phase === 'entered' && view === 'overview' && (
         <p className="hints" aria-hidden="true">
-          W work · A about · R résumé · C contact · M music · T tv
+          W work · A about · R résumé · C contact · M music · T tv · L light
         </p>
       )}
       <div className="pills">
@@ -144,8 +145,12 @@ function Keys() {
         }
         return
       }
-      if (s.view === 'about') return // the terminal handles its own keys
       const k = e.key.toLowerCase()
+      if (k === 'l') {
+        toggleTube() // the room light, from anywhere
+        return
+      }
+      if (s.view === 'about') return // the terminal handles its own keys
       const map: Record<string, View> = { w: 'work', a: 'about', r: 'resume', c: 'contact', m: 'music', t: 'tv' }
       if (map[k] && s.view !== map[k]) {
         emit('ui:click')
@@ -174,6 +179,17 @@ function Live() {
     if (vcr.status === 'loading' && p) setMsg(`Loading tape: ${p.title}.`)
     if (vcr.status === 'playing' && p) setMsg(`Now playing on the television: ${p.title}.`)
   }, [vcr.status, vcr.tape])
+  useEffect(
+    () =>
+      useStore.subscribe(
+        (s) => s.lights,
+        (l, prev) => {
+          if (l.tube !== prev.tube) setMsg(`Room light ${l.tube ? 'on' : 'off'}.`)
+          else if (l.lamp !== prev.lamp) setMsg(`Desk lamp ${l.lamp ? 'on' : 'off'}.`)
+        },
+      ),
+    [],
+  )
   return (
     <div className="sr-only" aria-live="polite" role="status">
       {msg}

@@ -12,16 +12,16 @@ import {
   MeshStandardMaterial,
   SRGBColorSpace,
   TextureLoader,
+  Vector4,
   type Material,
   type Object3D,
   type ShaderMaterial,
-  type Texture,
 } from 'three'
 import { site } from '../content/site'
 import { canvasTexture } from '../lib/canvas'
 import { useStore } from '../state/store'
 import lightmaps from './lightmaps.json'
-import { makeBaked } from './materials/baked'
+import { makeBaked, swayTime, type LayerMaps, type Sway } from './materials/baked'
 import { makeCRT } from './materials/crt'
 import { makeWindowGlass } from './materials/windowGlass'
 import { registry } from './registry'
@@ -29,13 +29,29 @@ import { screens } from './screens'
 import * as print from './screens/print'
 import { resumePage } from './Papers'
 
-type Manifest = { atlases: Record<string, { file: string; scale: number }>; objects: Record<string, string> }
+type Layer = keyof LayerMaps
+type Manifest = {
+  layers: Layer[]
+  atlases: Record<string, { maps: Record<Layer, { file: string; scale: number }> }>
+  objects: Record<string, string>
+}
 const LM = lightmaps as unknown as Manifest
+const LAYERS: Layer[] = ['base', 'window', 'lamp', 'tube']
 
 /** Shader materials that receive the captured room cubemap once it exists. */
 export const envReceivers: ShaderMaterial[] = []
 /** Custom materials driven every frame by <Systems/>. */
-export const mats: { glass?: ShaderMaterial; crt?: ShaderMaterial; pc?: ShaderMaterial } = {}
+export const mats: {
+  glass?: ShaderMaterial
+  crt?: ShaderMaterial
+  pc?: ShaderMaterial
+  /** the tube light's diffuser */
+  tube?: MeshBasicMaterial
+  /** the lamp's bulb and the inside of its shade, with their full glow */
+  lampGlow: { m: MeshStandardMaterial; full: number }[]
+  /** fairy-light bulbs (twinkle clock in uniforms.uTime) */
+  fairy?: { uniforms: { uTime: { value: number } } }
+} = { lampGlow: [] }
 
 /** Per-material adjustments on top of the glTF values (keys are Blender material names). */
 const TWEAK: Record<string, Partial<MeshPhysicalMaterial>> = {
@@ -91,11 +107,45 @@ function within(o: Object3D, prefix: string) {
   return false
 }
 
+/**
+ * Fairy-light bulbs twinkle one by one: a slow shimmer whose phase comes from each bulb's place along the
+ * string (bulbs sit 5.8 cm apart, one per cell).
+ */
+function twinkle(m: MeshBasicMaterial) {
+  const uTime = { value: 0 }
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = uTime
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vTwW;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvTwW = ( modelMatrix * vec4( position, 1.0 ) ).xyz;')
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uTime;\nvarying vec3 vTwW;')
+      .replace(
+        'vec4 diffuseColor = vec4( diffuse, opacity );',
+        `float twId = floor( ( 1.74 - vTwW.z ) / 0.058 );
+        float twH = fract( sin( twId * 12.9898 ) * 43758.5453 );
+        float tw = 0.78 + 0.22 * sin( uTime * ( 0.6 + twH * 1.3 ) + twH * 40.0 ) - 0.25 * smoothstep( 0.93, 1.0, sin( uTime * 0.37 + twH * 17.0 ) );
+        vec4 diffuseColor = vec4( diffuse * tw, opacity );`,
+      )
+  }
+  m.customProgramCacheKey = () => 'fairy-twinkle'
+  return { uniforms: { uTime } }
+}
+
 export function Room() {
   const gltf = useLoader(GLTFLoader, MODEL_URL, (l) => l.setMeshoptDecoder(MeshoptDecoder))
   const atlasNames = Object.keys(LM.atlases)
-  const lmList = useLoader(TextureLoader, atlasNames.map((k) => '/' + LM.atlases[k]!.file))
-  const lm = Object.fromEntries(atlasNames.map((k, i) => [k, lmList[i]!])) as Record<string, Texture>
+  // one lightmap per light layer and atlas (blender/bake_export.py)
+  const lmList = useLoader(
+    TextureLoader,
+    atlasNames.flatMap((k) => LAYERS.map((l) => '/' + LM.atlases[k]!.maps[l].file)),
+  )
+  const lm = Object.fromEntries(
+    atlasNames.map((k, i) => [k, Object.fromEntries(LAYERS.map((l, j) => [l, lmList[i * LAYERS.length + j]!])) as LayerMaps]),
+  ) as Record<string, LayerMaps>
+  const lmScale = Object.fromEntries(
+    atlasNames.map((k) => [k, new Vector4(...LAYERS.map((l) => Math.PI * LM.atlases[k]!.maps[l].scale))]),
+  ) as Record<string, Vector4>
   // chosen once at mount: a later switch to the light renderer must not reload the panorama
   // (that would suspend the room and rebuild every material)
   const [cityUrl] = useState(() => (useStore.getState().lowPower ? '/textures/city_sm.webp' : '/textures/city.webp'))
@@ -103,7 +153,7 @@ export function Room() {
   const posterPhoto = useLoader(TextureLoader, site.decor.poster.photo)
 
   useLayoutEffect(() => {
-    for (const t of Object.values(lm)) {
+    for (const t of lmList) {
       t.flipY = false
       t.colorSpace = SRGBColorSpace
       t.channel = 1
@@ -121,22 +171,41 @@ export function Room() {
     mats.glass = glass
     mats.crt = crt
     const fairyBulb = new MeshBasicMaterial({ color: new Color(1.0, 0.72, 0.4).multiplyScalar(2.2) })
+    mats.fairy = twinkle(fairyBulb)
+    // the tube light's diffuser: a faint grey glass when off, brighter than white when on (<Systems/> drives it)
+    const tubeGlow = new MeshBasicMaterial({ color: new Color(0.06, 0.062, 0.065) })
+    mats.tube = tubeGlow
+    mats.lampGlow.length = 0
     const cache = new Map<string, Material>()
     // thin, clear lenses (the glTF transmission material reads as black sunglasses here)
     const lens = new MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.03, transparent: true, opacity: 0.1, envMapIntensity: 1.6, depthWrite: false })
+    // the curtains and the plant's leaves move a little in the air from the ceiling fan
+    const lowPower = useStore.getState().lowPower
+    const plant = registry.get('Plant') ?? gltf.scene.getObjectByName('Plant')
+    const plantBox = plant ? new Box3().setFromObject(plant) : null
+    const swayOf = (name: string): Sway | undefined => {
+      if (lowPower) return undefined
+      if (name === 'M_Curtain') return { kind: 'curtain', from: 2.47, length: 1.53, amp: 0.009 }
+      if (plantBox && /leaves|leaf/i.test(name)) {
+        const h = plantBox.max.y - plantBox.min.y
+        return { kind: 'plant', from: plantBox.min.y + h * 0.3, length: h * 0.7, amp: 0.0045 }
+      }
+      return undefined
+    }
     const baked = (mat: Material, atlas: string) => {
       if (/_glass$/.test(mat.name)) return lens
       const key = `${mat.uuid}:${atlas}`
       let m = cache.get(key)
       if (!m) {
-        const a = LM.atlases[atlas]!
-        const bm = makeBaked(mat as MeshStandardMaterial, lm[atlas]!, Math.PI * a.scale)
+        const bm = makeBaked(mat as MeshStandardMaterial, lm[atlas]!, lmScale[atlas]!, swayOf(mat.name))
         Object.assign(bm, { envMapIntensity: Math.min(bm.envMapIntensity, 0.35) }, TWEAK[mat.name] ?? {})
+        if (mat.name === 'M_Bulb' || mat.name === 'M_LampInner') mats.lampGlow.push({ m: bm, full: bm.emissiveIntensity })
         m = bm
         cache.set(key, m)
       }
       return m
     }
+    swayTime.value = 0
 
     gltf.scene.traverse((o) => {
       if (o.name) registry.objects.set(o.name, o)
@@ -211,6 +280,10 @@ export function Room() {
         if (src.name === 'M_FairyBulb') mesh.material = fairyBulb
         return
       }
+      if (within(mesh, 'Tube_Diffuser')) {
+        mesh.material = tubeGlow
+        return
+      }
       const owner = ownerName(mesh)
       if (owner) {
         const atlas = LM.objects[owner]!
@@ -230,7 +303,7 @@ export function Room() {
       }
     })
     // boxes for hotspots / focus rings
-    for (const n of ['Notepad', 'TV_Shell', 'Computer_Shell', 'CDPlayer', 'Resume', 'VCR_Shell', 'Lamp']) {
+    for (const n of ['Notepad', 'TV_Shell', 'Computer_Shell', 'CDPlayer', 'Resume', 'VCR_Shell', 'Lamp', 'SwitchBoard']) {
       const o = registry.get(n)
       if (o) o.userData.box = new Box3().setFromObject(o)
     }

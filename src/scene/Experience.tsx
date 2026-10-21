@@ -20,6 +20,8 @@ import { SpotAnchors } from './SpotAnchors'
 import { Guard } from './Guard'
 import { Speakers } from './Speakers'
 import { Avatar } from './Avatar'
+import { LightControls } from './LightControls'
+import { Ambience } from './Ambience'
 
 /** Signals "ready" once everything is loaded and shaders are compiled. */
 function Ready() {
@@ -108,6 +110,8 @@ export function Experience() {
         <Terminal />
         <CDPlayerLCD />
         <Speakers />
+        <LightControls />
+        <Ambience />
         <Hotspots />
         <SpotAnchors />
         <ScreenAnchors />

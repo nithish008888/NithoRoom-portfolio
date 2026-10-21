@@ -17,6 +17,7 @@ import {
   type SkinnedMesh,
   type Texture,
 } from 'three'
+import { layerWeights, levels } from './lighting'
 
 /** Light probe beside the avatar's head: it is lit by the corner it sits in (baked walls, lamp spill, screen). */
 const PROBE = new Vector3(-0.78, 1.18, 1.18)
@@ -85,7 +86,11 @@ export function Avatar() {
       const cam = new CubeCamera(0.05, 30, rt)
       cam.position.copy(PROBE)
       gltf.scene.visible = false
+      // always in the default light (lamp on, tube off): the intensity below follows the switches
+      const w = layerWeights.value.clone()
+      layerWeights.value.set(1, 1, 1, 0)
       cam.update(gl, scene)
+      layerWeights.value.copy(w)
       gltf.scene.visible = true
       const pm = new PMREMGenerator(gl)
       env.current = pm.fromCubemap(rt.texture).texture
@@ -93,10 +98,13 @@ export function Avatar() {
       rt.dispose()
       for (const m of rig.mats) {
         m.envMap = env.current
-        m.envMapIntensity = 1.15
         m.needsUpdate = true
       }
     }
+    // the probe was captured with the lamp on and the tube off: follow the switches roughly
+    // (the realtime lamp spot and tube light add the direct part)
+    const probe = 1.15 * (0.8 + 0.2 * levels.lamp) * (1 + 0.6 * levels.tube)
+    for (const m of rig.mats) m.envMapIntensity = probe
     // breathing (~14 a minute), a slow drift of the head, blinks every few seconds
     const br = Math.sin(t * 1.47)
     if (rig.chest) rig.chest.quaternion.copy(rig.rest.chest).multiply(q.setFromAxisAngle(X, br * 0.012))

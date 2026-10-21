@@ -14,6 +14,10 @@ export type EventName =
   | 'key'
   | 'cd:button'
   | 'cutfade'
+  | 'switch'
+  | 'lamp:click'
+  | 'tube:tink'
+  | 'thunder'
 
 const map = new Map<EventName, Set<(d?: unknown) => void>>()
 

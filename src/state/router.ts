@@ -41,7 +41,14 @@ function apply(route: Route) {
   }
   // the tape stays in the VCR when the notepad is put down; only an explicit project change swaps it
   const project = route.view === 'work' ? route.project ?? s.project : s.project
+  if (route.view !== s.view) leaveHover()
   s.set({ view: route.view, project })
+}
+
+/** A new view: the object under a resting mouse is no longer the one it hovered. */
+function leaveHover() {
+  useStore.getState().setHover(null)
+  document.body.style.cursor = ''
 }
 
 /** Navigate (pushes a history entry unless replace). */
@@ -55,6 +62,7 @@ export function go(view: View, project: string | null = null, opts: { replace?: 
   if (view === 'work' && project) {
     const s = useStore.getState()
     if (s.phase === 'entered') {
+      if (s.view !== view) leaveHover()
       s.set({ view, project })
       return
     }

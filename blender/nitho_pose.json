@@ -1,5 +1,5 @@
 {
- "_doc": "Seated typing pose for blender/pose_character.py. aim: [bone, [x, y, z(, twist°)]] = world direction in the character's own frame (facing -Y, left +X, up +Z), parents first. bend: [bone, degrees, local axis].",
+ "_doc": "Seated typing pose for blender/pose_character.py. aim: [bone, [x, y, z(, twist°)]] = world direction in the character's own frame (facing -Y, left +X, up +Z), parents first. bend: [bone, degrees, local axis]. Hands rest in the lap (out of sight in the About views).",
  "seat_back": 0.045,
  "hip_above_seat": 0.09,
  "aim": [
@@ -86,49 +86,49 @@
   [
    "UpperArm.L",
    [
-    0.2,
-    -0.42,
-    -0.88
+    0.14,
+    -0.08,
+    -0.99
    ]
   ],
   [
    "UpperArm.R",
    [
-    -0.2,
-    -0.42,
-    -0.88
+    -0.14,
+    -0.08,
+    -0.99
    ]
   ],
   [
    "Forearm.L",
    [
-    -0.25,
-    -0.95,
-    -0.18
+    -0.1,
+    -0.75,
+    -0.66
    ]
   ],
   [
    "Forearm.R",
    [
-    0.25,
-    -0.95,
-    -0.18
+    0.1,
+    -0.75,
+    -0.66
    ]
   ],
   [
    "Hand.L",
    [
-    -0.1,
-    -0.9,
-    -0.45
+    -0.03,
+    -0.55,
+    -0.83
    ]
   ],
   [
    "Hand.R",
    [
-    0.1,
-    -0.9,
-    -0.45
+    0.03,
+    -0.55,
+    -0.83
    ]
   ]
  ],
@@ -370,7 +370,7 @@
  ],
  "preview_cams": [
   [
-   "side_room",
+   "about_desktop",
    [
     -0.55,
     -1.62,
@@ -381,49 +381,57 @@
     -1.12,
     1.07
    ],
-   36
+   36,
+   [
+    1600,
+    900
+   ]
   ],
   [
-   "side_window",
+   "about_mobile",
    [
-    -0.5,
-    -0.68,
+    -0.62,
+    -1.72,
     1.42
    ],
    [
-    -1.25,
-    -1.12,
-    1.07
+    -1.3,
+    -1.14,
+    1.05
    ],
-   36
+   59,
+   [
+    450,
+    975
+   ]
   ],
   [
-   "side_window_far",
+   "side",
    [
-    -0.38,
+    -0.95,
     -0.62,
-    1.5
+    0.98
    ],
    [
-    -1.22,
-    -1.12,
-    1.06
+    -0.95,
+    -1.11,
+    0.8
    ],
-   38
+   55
   ],
   [
-   "side_window_low",
+   "front",
    [
-    -0.52,
-    -0.72,
-    1.3
+    -1.55,
+    -1.75,
+    1.15
    ],
    [
-    -1.25,
-    -1.12,
-    1.07
+    -0.95,
+    -1.1,
+    0.85
    ],
-   36
+   60
   ]
  ]
 }

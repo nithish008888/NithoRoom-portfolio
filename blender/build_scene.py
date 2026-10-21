@@ -1048,14 +1048,31 @@ for i, (sz, loc) in enumerate(CHAIR_RAILS):
     ch.append(box(f'Chair_Rail{i}', sz, loc, C_STATIC, M['teak'], bevel=0.004))
 parent(ch, chg)
 
-# Indian modular switch board on the left wall (by the side desk)
-swg = group('SwitchBoard', (-1.744, -0.5, 1.12), (0, 0, R(-90)))
+# Indian modular switch board on the left wall above the computer (in frame in both About views). The second
+# rocker works the tube light: it stays a separate object ('Switch_Light') so the web app can flip it.
+swg = group('SwitchBoard', (-1.749, -0.85, 1.2), (0, 0, R(90)))   # local -Y (the rockers) faces into the room
 sw = [box('Switch_Plate', (0.2, 0.01, 0.095), (0, -0.005, 0), C_STATIC, M['switchboard'], bevel=0.003)]
-for i in range(4):
+for i in (0, 2, 3):
     sw.append(box(f'Switch_Rocker{i}', (0.024, 0.008, 0.04), (-0.06 + i * 0.03, -0.013, 0.008), C_STATIC,
                   M['switchboard'], bevel=0.003, rot=(R(6 if i % 2 else -6), 0, 0)))
 sw.append(box('Switch_Socket', (0.03, 0.006, 0.03), (0.075, -0.012, 0.0), C_STATIC, M['button_lt'], bevel=0.004))
 parent(sw, swg)
+rocker = box('Switch_Light', (0.024, 0.008, 0.04), (-0.03, -0.013, 0.008), C_STATIC, M['switchboard'], bevel=0.003,
+             rot=(R(-6), 0, 0))   # -6° = off (top pressed in)
+rocker.parent = swg
+bpy.context.view_layer.update()
+_mw = rocker.matrix_world.copy()
+rocker.parent = None
+rocker.matrix_world = _mw
+
+# 4-ft LED tube light high on the left wall above the side desk (off by default; the switch below turns it on)
+M['tube_body'] = material('M_TubeBatten', color=hexc('#e9e7e1'), rough=0.4)
+M['tube_light'] = material('M_TubeLight', color=(0.92, 0.95, 1.0), rough=0.3, emission=(0.9, 0.95, 1.0), emission_strength=12)
+TUBE = Vector((-1.75, -1.15, 2.12))
+box('Tube_Batten', (0.026, 1.24, 0.036), (TUBE.x + 0.013, TUBE.y, TUBE.z), C_STATIC, M['tube_body'], bevel=0.004)
+cylinder('Tube_Diffuser', 0.0125, 1.2, (TUBE.x + 0.03, TUBE.y, TUBE.z - 0.008), C_STATIC, M['tube_light'], segs=20,
+         rot=(R(90), 0, 0), bottom=False)
+empty('TubeLightPos', (TUBE.x + 0.06, TUBE.y, TUBE.z - 0.02))
 
 # ============================================================================ poster (window wall, right)
 POSTER = (1.165, -0.004, 1.42)   # A3-ish, so the whole 'ME' poster sits inside the overview frame
@@ -1108,6 +1125,8 @@ add_light('L_RoomLeft', 'AREA', (-1.2, -2.2, 2.4), 4.0, (1.0, 0.6, 0.34), rot=(R
 add_light('L_Corner', 'AREA', (-0.95, -1.15, 2.2), 12.0, (1.0, 0.62, 0.36), rot=(0, R(32), 0), size=0.5)   # computer + wall
 # warm wash behind the fairy lights, so the wall around the computer isn't a black void in the About view
 add_light('L_Fairy', 'AREA', (-1.45, -1.25, 1.72), 6.0, (1.0, 0.68, 0.38), rot=(0, R(90), 0), size=0.25, size_y=1.0)   # faces the wall
+# the wall tube light (its own bake layer: the switch fades it in at runtime); faces into the room, a little down
+add_light('L_Tube', 'AREA', (-1.69, -1.15, 2.1), 30.0, (0.92, 0.96, 1.0), rot=(0, R(-75), 0), size=0.06, size_y=1.2)
 
 world = bpy.data.worlds.new('World')
 scene.world = world
